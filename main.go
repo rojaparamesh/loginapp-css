@@ -1,48 +1,83 @@
 package main
 
 import (
-    "html/template"
+    "database/sql"
     "net/http"
+    "log"
+    "html/template"
+    "github.com/gin-gonic/gin"
+    _ "github.com/go-sql-driver/mysql"
 )
 
-var users = make(map[string]string)
+var db *sql.DB
+
+func init() {
+    var err error
+    db, err = sql.Open("mysql", "root:password@tcp(127.0.0.1:3306)/userdb")
+    if err != nil {
+        log.Fatal(err)
+    }
+}
 
 func main() {
-    http.HandleFunc("/", loginPage)
-    http.HandleFunc("/signup", signupPage)
-    http.HandleFunc("/forgot-password", forgotPasswordPage)
-    http.ListenAndServe(":8080", nil)
+    r := gin.Default()
+    r.Static("/static", "./static")
+    r.LoadHTMLGlob("templates/*")
+
+    r.GET("/login", func(c *gin.Context) {
+        c.HTML(http.StatusOK, "login.html", nil)
+    })
+
+    r.GET("/signup", func(c *gin.Context) {
+        c.HTML(http.StatusOK, "signup.html", nil)
+    })
+
+    r.POST("/signin", signIn)
+    r.POST("/signup", signUp)
+    r.GET("/forgot", func(c *gin.Context) {
+        c.HTML(http.StatusOK, "forgot_password.html", nil)
+    })
+    r.POST("/reset_password", resetPassword)
+
+    r.Run(":8080")
 }
 
-func loginPage(w http.ResponseWriter, r *http.Request) {
-    if r.Method == http.MethodPost {
-        username := r.FormValue("username")
-        password := r.FormValue("password")
-        if _, ok := users[username]; ok && users[username] == password {
-            http.Redirect(w, r, "/success", http.StatusSeeOther)
-            return
-        }
-        http.Error(w, "Invalid credentials", http.StatusUnauthorized)
-    }
-    renderTemplate(w, "login.html")
-}
+func signIn(c *gin.Context) {
+    username := c.PostForm("username")
+    password := c.PostForm("password")
 
-func signupPage(w http.ResponseWriter, r *http.Request) {
-    if r.Method == http.MethodPost {
-        username := r.FormValue("username")
-        password := r.FormValue("password")
-        users[username] = password
-        http.Redirect(w, r, "/", http.StatusSeeOther)
+    var dbPassword string
+    err := db.QueryRow("SELECT password FROM users WHERE username = ?", username).Scan(&dbPassword)
+    if err != nil {
+        c.String(http.StatusUnauthorized, "Invalid username or password")
         return
     }
-    renderTemplate(w, "signup.html")
+
+    // Here you should validate the password (use bcrypt for hashing)
+    if password != dbPassword {
+        c.String(http.StatusUnauthorized, "Invalid username or password")
+        return
+    }
+
+    c.String(http.StatusOK, "Welcome, %s!", username)
 }
 
-func forgotPasswordPage(w http.ResponseWriter, r *http.Request) {
-    renderTemplate(w, "forgot_password.html")
+func signUp(c *gin.Context) {
+    username := c.PostForm("username")
+    password := c.PostForm("password")
+
+    // Here you should hash the password (use bcrypt for security)
+    _, err := db.Exec("INSERT INTO users (username, password) VALUES (?, ?)", username, password)
+    if err != nil {
+        c.String(http.StatusInternalServerError, "Error creating user")
+        return
+    }
+
+    c.String(http.StatusOK, "User created successfully!")
 }
 
-func renderTemplate(w http.ResponseWriter, tmpl string) {
-    t, _ := template.ParseFiles("templates/" + tmpl)
-    t.Execute(w, nil)
+func resetPassword(c *gin.Context) {
+    username := c.PostForm("username")
+    // Logic to reset the password (send email, etc.)
+    c.String(http.StatusOK, "Password reset link sent to %s", username)
 }
