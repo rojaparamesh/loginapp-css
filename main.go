@@ -66,42 +66,14 @@ func signUp(c *gin.Context) {
     username := c.PostForm("username")
     password := c.PostForm("password")
 
-    // Check for existing user
-    var existingUser string
-    err := db.QueryRow("SELECT username FROM users WHERE username = ?", username).Scan(&existingUser)
-    if err != nil && err != sql.ErrNoRows {
-        log.Printf("Error checking existing user: %v", err)
-        c.String(http.StatusInternalServerError, "Internal Server Error")
-        return
-    }
-
-    if existingUser != "" {
-        c.String(http.StatusConflict, "Username already exists")
-        return
-    }
-
-    // Hash the password
-    hashedPassword, err := hashPassword(password)
+    // Here you should hash the password (use bcrypt for security)
+    _, err := db.Exec("INSERT INTO users (username, password) VALUES (?, ?)", username, password)
     if err != nil {
-        log.Printf("Error hashing password: %v", err)
-        c.String(http.StatusInternalServerError, "Error hashing password")
-        return
-    }
-
-    // Insert new user
-    _, err = db.Exec("INSERT INTO users (username, password) VALUES (?, ?)", username, hashedPassword)
-    if err != nil {
-        log.Printf("Error inserting user: %v", err)
-        c.String(http.StatusInternalServerError, "Error creating user: %v", err)
+        c.String(http.StatusInternalServerError, "Error creating user")
         return
     }
 
     c.String(http.StatusOK, "User created successfully!")
-}
-
-func hashPassword(password string) (string, error) {
-    bytes, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
-    return string(bytes), err
 }
 
 func resetPassword(c *gin.Context) {
