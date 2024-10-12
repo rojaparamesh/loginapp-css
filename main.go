@@ -4,7 +4,6 @@ import (
     "database/sql"
     "net/http"
     "log"
-    "html/template"
     "github.com/gin-gonic/gin"
     _ "github.com/go-sql-driver/mysql"
 )
@@ -22,7 +21,7 @@ func init() {
 func main() {
     r := gin.Default()
     r.Static("/static", "./static")
-    r.LoadHTMLGlob("templates/*")
+    r.LoadHTMLGlob("templates/*") // Load HTML templates
 
     r.GET("/login", func(c *gin.Context) {
         c.HTML(http.StatusOK, "login.html", nil)
