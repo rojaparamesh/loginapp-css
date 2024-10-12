@@ -6,6 +6,7 @@ import (
     "log"
     "github.com/gin-gonic/gin"
     _ "github.com/go-sql-driver/mysql"
+    "golang.org/x/crypto/bcrypt"
 )
 
 var db *sql.DB
@@ -98,6 +99,10 @@ func signUp(c *gin.Context) {
     c.String(http.StatusOK, "User created successfully!")
 }
 
+func hashPassword(password string) (string, error) {
+    bytes, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+    return string(bytes), err
+}
 
 func resetPassword(c *gin.Context) {
     username := c.PostForm("username")
